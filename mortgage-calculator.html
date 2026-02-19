@@ -205,12 +205,19 @@
       justify-content: flex-end;
     }
     .cell-head-row .num-input { max-width: 140px; }
-    #downPayment {
-      text-align: right;
-      width: 9ch;
-      min-width: 9ch;
-      max-width: 9ch;
+    #price {
+      width: 11ch;
+      min-width: 11ch;
+      max-width: 11ch;
       flex: 0 0 auto;
+      text-align: right;
+    }
+    #downPayment {
+      width: 11ch;
+      min-width: 11ch;
+      max-width: 11ch;
+      flex: 0 0 auto;
+      text-align: right;
     }
 
     .field-label {
@@ -545,8 +552,7 @@
           <button id="dpDolBtn" onclick="setDpMode('dollar')">$</button>
         </div>
         <div class="dp-input-wrap">
-          <input type="text" class="num-input" id="downPayment" inputmode="numeric" value="20" />
-          <span id="dpUnit" style="font-size:14px;color:var(--text-sec);font-weight:600;white-space:nowrap">%</span>
+          <input type="text" class="num-input" id="downPayment" inputmode="numeric" value="20%" />
         </div>
       </div>
       <div class="slider-wrap">
@@ -651,7 +657,7 @@
     price:       400000,
     dpMode:      'pct',   // 'pct' | 'dollar'
     dpValue:     20,      // % when mode=pct, $ when mode=dollar
-    rate:        6.75,
+    rate:        6.0,
     termYears:   30,
     taxAnnual:   2500,
     insAnnual:   1500,
@@ -814,26 +820,32 @@
     render();
   });
 
-  // Down payment (% plain number, $ formatted with $ and commas)
+  // Down payment (% with % in input, $ with $ and commas in input)
+  function formatDpInput() {
+    return state.dpMode === 'pct' ? Math.round(state.dpValue) + '%' : formatPriceInput(state.dpValue);
+  }
+  function parseDpInput(str) {
+    if (state.dpMode === 'pct') {
+      const n = parseFloat(String(str).replace(/%/g, '').trim()) || 0;
+      return Math.round(n);
+    }
+    return Math.round(parsePriceInput(str));
+  }
   document.getElementById('downPayment').addEventListener('input', (e) => {
-    const raw = state.dpMode === 'pct' ? (parseFloat(e.target.value) || 0) : parsePriceInput(e.target.value);
-    state.dpValue = state.dpMode === 'pct' ? Math.round(raw) : Math.round(raw);
+    state.dpValue = parseDpInput(e.target.value);
     const el = e.target;
-    el.value = state.dpMode === 'pct' ? Math.round(state.dpValue) : formatPriceInput(state.dpValue);
+    el.value = formatDpInput();
     el.setSelectionRange(el.value.length, el.value.length);
     syncDpSlider();
     render();
   });
   document.getElementById('downPayment').addEventListener('blur', (e) => {
-    if (state.dpMode === 'pct') e.target.value = Math.round(state.dpValue);
-    else e.target.value = formatPriceInput(state.dpValue);
+    e.target.value = formatDpInput();
   });
   document.getElementById('dpSlider').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
     state.dpValue = state.dpMode === 'pct' ? Math.round(v) : v;
-    document.getElementById('downPayment').value = state.dpMode === 'pct'
-      ? Math.round(v)
-      : formatPriceInput(v);
+    document.getElementById('downPayment').value = formatDpInput();
     render();
   });
 
@@ -898,7 +910,6 @@
 
     document.getElementById('dpPctBtn').classList.toggle('active', mode === 'pct');
     document.getElementById('dpDolBtn').classList.toggle('active', mode === 'dollar');
-    document.getElementById('dpUnit').textContent = mode === 'pct' ? '%' : '$';
 
     syncDpSliderRange();
     syncDpSlider();
@@ -916,9 +927,7 @@
 
   function syncDpSlider() {
     document.getElementById('dpSlider').value = state.dpValue;
-    document.getElementById('downPayment').value = state.dpMode === 'pct'
-      ? Math.round(state.dpValue)
-      : formatPriceInput(state.dpValue);
+    document.getElementById('downPayment').value = formatDpInput();
   }
 
   // ── Loan term ──────────────────────────────────────────────
