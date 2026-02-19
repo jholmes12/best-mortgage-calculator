@@ -1,0 +1,892 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Mortgage Calculator</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --bg:        #0d1117;
+      --surface:   #161b22;
+      --surface2:  #1c2330;
+      --border:    #30363d;
+      --accent:    #2563eb;
+      --accent-h:  #3b7bff;
+      --text:      #e6edf3;
+      --text-sec:  #8b949e;
+      --pmi-bg:    #451a03;
+      --pmi-text:  #fb923c;
+      --pmi-border:#92400e;
+      --radius:    12px;
+      --radius-sm: 8px;
+    }
+
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      min-height: 100vh;
+      font-size: 15px;
+      line-height: 1.5;
+    }
+
+    /* ── Header ─────────────────────────────────────────────── */
+    header {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 14px 24px;
+      border-bottom: 1px solid var(--border);
+      background: var(--surface);
+    }
+    header svg { flex-shrink: 0; }
+    header .brand {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-sec);
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+    }
+
+    /* ── Layout ─────────────────────────────────────────────── */
+    main {
+      max-width: 960px;
+      margin: 0 auto;
+      padding: 0 16px 80px;
+    }
+
+    /* ── Hero (sticky) ──────────────────────────────────────── */
+    .hero {
+      position: sticky;
+      top: 0;
+      z-index: 100;
+      background: var(--bg);
+      padding: 20px 0 16px;
+      /* border-bottom: 1px solid var(--border); */
+      margin-bottom: 0;
+    }
+    .hero-inner {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 28px 10px 28px;
+    }
+
+    .hero-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-sec);
+      margin-bottom: 6px;
+    }
+
+    .hero-payment-row {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      cursor: pointer;
+      user-select: none;
+    }
+    .hero-payment {
+      font-size: clamp(2.6rem, 6vw, 4.4rem);
+      font-weight: 800;
+      color: #fff;
+      line-height: 1;
+      letter-spacing: -0.02em;
+      transition: opacity 0.15s ease;
+    }
+    .hero-payment.flash { opacity: 0.4; }
+
+    .breakdown-chevron {
+      display: flex;
+      align-items: center;
+      color: var(--text-sec);
+      margin-top: 4px;
+      transition: transform 0.2s ease, color 0.15s;
+      flex-shrink: 0;
+    }
+    .breakdown-chevron.open { transform: rotate(180deg); color: var(--text); }
+
+    .breakdown-row {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 4px 20px;
+      margin-top: 12px;
+      overflow: hidden;
+      max-height: 0;
+      opacity: 0;
+      transition: max-height 0.25s ease, opacity 0.2s ease, margin-top 0.2s ease;
+    }
+    .breakdown-row.open {
+      max-height: 80px;
+      opacity: 1;
+    }
+    .breakdown-item {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      font-size: 13px;
+      color: var(--text-sec);
+      white-space: nowrap;
+    }
+    .breakdown-item .dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+    .breakdown-item .val { color: var(--text); font-weight: 500; }
+
+    .dot-pi    { background: var(--accent); }
+    .dot-tax   { background: #16a34a; }
+    .dot-ins   { background: #7c3aed; }
+    .dot-hoa   { background: #0891b2; }
+    .dot-pmi   { background: #fb923c; }
+
+    /* ── Inputs panel (table layout) ─────────────────────────── */
+    .inputs-grid {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      overflow: hidden;
+    }
+    @media (max-width: 639px) {
+      .inputs-grid {
+        margin-left: -16px;
+        margin-right: -16px;
+        background: transparent;
+        border: none;
+        border-radius: 0;
+      }
+    }
+
+    .table-row {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      padding: 14px 20px;
+    }
+
+    .table-row-2 {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+    }
+    @media (max-width: 639px) {
+      .table-row-2 { grid-template-columns: 1fr; }
+      .table-row-2.keep-two-on-mobile { grid-template-columns: 1fr 1fr; }
+    }
+    .table-cell {
+      padding: 14px 20px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Table cell: name + value on one row */
+    .cell-head-row {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    .cell-head-row .field-label { margin-bottom: 0; flex-shrink: 0; }
+    .cell-head-row .input-row {
+      flex: 1;
+      min-width: 0;
+      display: flex;
+      justify-content: flex-end;
+    }
+    .cell-head-row .num-input { max-width: 140px; }
+    #downPayment {
+      text-align: right;
+      width: 4ch;
+      min-width: 4ch;
+      max-width: 4ch;
+      flex: 0 0 auto;
+    }
+
+    .field-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+      color: var(--text-sec);
+    }
+
+    .field {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    /* Number + stepper input row */
+    .input-row {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+    .num-input {
+      flex: 1;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text);
+      font-family: inherit;
+      font-size: 1.05rem;
+      font-weight: 600;
+      padding: 8px 12px;
+      min-width: 0;
+      width: 100%;
+      outline: none;
+      transition: border-color 0.15s;
+    }
+    .num-input:focus { border-color: var(--accent); }
+    .num-input::-webkit-inner-spin-button,
+    .num-input::-webkit-outer-spin-button { -webkit-appearance: none; }
+
+    /* Stepper buttons */
+    .stepper {
+      display: flex;
+      flex-direction: column;
+      gap: 3px;
+    }
+    .stepper button {
+      width: 28px; height: 22px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 5px;
+      color: var(--text-sec);
+      cursor: pointer;
+      font-size: 12px;
+      line-height: 1;
+      transition: background 0.12s, color 0.12s;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .stepper button:hover { background: var(--accent); color: #fff; border-color: var(--accent); }
+
+    /* Sliders */
+    .slider-wrap { position: relative; }
+    input[type="range"] {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 100%;
+      height: 5px;
+      border-radius: 9999px;
+      outline: none;
+      cursor: pointer;
+      background: transparent;
+      position: relative;
+    }
+    input[type="range"]::-webkit-slider-runnable-track {
+      height: 5px;
+      border-radius: 9999px;
+      background: var(--border);
+    }
+    input[type="range"]::-moz-range-track {
+      height: 5px;
+      border-radius: 9999px;
+      background: var(--border);
+    }
+    input[type="range"]::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px var(--accent);
+      margin-top: -6px;
+      cursor: pointer;
+      transition: box-shadow 0.15s;
+    }
+    input[type="range"]::-moz-range-thumb {
+      width: 18px; height: 18px;
+      border-radius: 50%;
+      background: var(--accent);
+      border: 3px solid #fff;
+      box-shadow: 0 0 0 2px var(--accent);
+      cursor: pointer;
+    }
+    input[type="range"]:focus::-webkit-slider-thumb {
+      box-shadow: 0 0 0 4px rgba(37,99,235,0.35);
+    }
+
+    /* Down payment row: equal spacing between title, toggle, and number input */
+    .cell-head-row.dp-row { gap: 24px; }
+    .cell-head-row.dp-row .input-row { gap: 24px; }
+
+    /* Down payment toggle */
+    .dp-header { display: flex; align-items: center; justify-content: space-between; }
+    .toggle-group {
+      display: flex;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      overflow: hidden;
+    }
+    .toggle-group button {
+      padding: 4px 12px;
+      font-size: 12px;
+      font-weight: 600;
+      background: transparent;
+      border: none;
+      color: var(--text-sec);
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s;
+    }
+    .toggle-group button.active {
+      background: var(--accent);
+      color: #fff;
+    }
+
+    /* Loan term buttons */
+    .term-group {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+    .term-btn {
+      flex: 1;
+      min-width: 60px;
+      padding: 8px 4px;
+      background: var(--surface2);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      color: var(--text-sec);
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 600;
+      cursor: pointer;
+      transition: background 0.15s, color 0.15s, border-color 0.15s;
+    }
+    .term-btn.active {
+      background: var(--accent);
+      border-color: var(--accent);
+      color: #fff;
+    }
+
+    /* PMI badge */
+    .pmi-field {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .pmi-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--pmi-bg);
+      border: 1px solid var(--pmi-border);
+      border-radius: 9999px;
+      padding: 4px 12px;
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--pmi-text);
+    }
+    .pmi-badge.hidden { display: none; }
+    .pmi-none {
+      font-size: 13px;
+      color: #16a34a;
+      font-weight: 500;
+    }
+    .pmi-none.hidden { display: none; }
+
+    /* Read-only field */
+    .readonly-val {
+      font-size: 1.05rem;
+      font-weight: 600;
+      color: var(--text);
+    }
+
+    /* ── Summary strip ───────────────────────────────────────── */
+    .summary-strip {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 12px;
+      margin-top: 20px;
+    }
+    @media (max-width: 639px) {
+      .summary-strip { grid-template-columns: 1fr; }
+    }
+    .summary-card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 16px 18px;
+    }
+    .summary-card .s-label {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--text-sec);
+      margin-bottom: 6px;
+    }
+    .summary-card .s-val {
+      font-size: 1.35rem;
+      font-weight: 700;
+      color: var(--text);
+    }
+
+    /* ── Section divider label ───────────────────────────────── */
+    .section-title {
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-sec);
+      margin-bottom: 12px;
+      margin-top: 8px;
+    }
+
+    /* Slider filled track via JS-set CSS variable */
+    .slider-fill {
+      display: block;
+      height: 5px;
+      border-radius: 9999px;
+      background: linear-gradient(to right, var(--accent) 0%, var(--accent) var(--pct), var(--border) var(--pct), var(--border) 100%);
+      margin-bottom: 6px;
+      pointer-events: none;
+    }
+    .slider-real {
+      display: block;
+      margin-top: -5px;
+    }
+
+    /* Hint text */
+    .hint {
+      font-size: 11px;
+      color: var(--text-sec);
+      margin-top: -4px;
+    }
+  </style>
+</head>
+<body>
+
+<main>
+
+  <!-- ── Hero ─────────────────────────────────────────────── -->
+  <div class="hero">
+    <div class="hero-inner">
+      <div class="hero-label">Monthly Payment</div>
+      <div class="hero-payment-row" onclick="toggleBreakdown()" title="Show breakdown">
+        <div class="hero-payment" id="totalPayment">$0 /mo</div>
+        <svg class="breakdown-chevron" id="breakdownChevron" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><polyline points="6 9 12 15 18 9"/></svg>
+      </div>
+      <div class="breakdown-row" id="breakdownRow">
+        <div class="breakdown-item">
+          <span class="dot dot-pi"></span>
+          <span>Principal &amp; Interest</span>
+          <span class="val" id="bd-pi">$0</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="dot dot-tax"></span>
+          <span>Tax</span>
+          <span class="val" id="bd-tax">$0</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="dot dot-ins"></span>
+          <span>Insurance</span>
+          <span class="val" id="bd-ins">$0</span>
+        </div>
+        <div class="breakdown-item">
+          <span class="dot dot-hoa"></span>
+          <span>HOA</span>
+          <span class="val" id="bd-hoa">$0</span>
+        </div>
+        <div class="breakdown-item" id="bd-pmi-item" style="display:none">
+          <span class="dot dot-pmi"></span>
+          <span>PMI</span>
+          <span class="val" id="bd-pmi">$0</span>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ── Inputs (table layout) ───────────────────────────────── -->
+
+  <div class="inputs-grid">
+
+    <!-- Purchase Price (full-width row) -->
+    <div class="table-row">
+      <div class="cell-head-row">
+        <div class="field-label">Purchase Price</div>
+        <div class="input-row">
+          <input type="number" class="num-input" id="price" value="400000" min="200000" max="800000" step="5000" />
+        </div>
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="priceSlider" min="200000" max="800000" step="5000" value="400000" />
+      </div>
+    </div>
+
+    <!-- Down Payment (full-width row) -->
+    <div class="table-row">
+      <div class="cell-head-row dp-row">
+        <div class="field-label">Down Payment</div>
+        <div class="input-row">
+          <div class="toggle-group">
+            <button class="active" id="dpPctBtn" onclick="setDpMode('pct')">%</button>
+            <button id="dpDolBtn" onclick="setDpMode('dollar')">$</button>
+          </div>
+          <input type="number" class="num-input" id="downPayment" value="20" min="0" step="0.1" inputmode="decimal" />
+          <span id="dpUnit" style="font-size:14px;color:var(--text-sec);font-weight:600;white-space:nowrap">%</span>
+        </div>
+
+      </div>
+      <div class="slider-wrap">
+        <input type="range" id="dpSlider" min="0" max="100" step="0.1" value="20" />
+      </div>
+      <div class="hint" id="dpHint">20% of purchase price</div>
+    </div>
+
+    <!-- Tax | Insurance (two cells, right below Down Payment; stay side-by-side on mobile) -->
+    <div class="table-row-2 keep-two-on-mobile">
+      <div class="table-cell">
+        <div class="field">
+          <div class="field-label">Tax</div>
+          <div class="input-row">
+            <input type="number" class="num-input" id="tax" value="5000" min="0" step="100" inputmode="decimal" />
+            <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
+          </div>
+          <div class="hint" id="taxMonthly">≈ $417 /mo</div>
+        </div>
+      </div>
+      <div class="table-cell">
+        <div class="field">
+          <div class="field-label">Insurance</div>
+          <div class="input-row">
+            <input type="number" class="num-input" id="insurance" value="1500" min="0" step="100" inputmode="decimal" />
+            <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
+          </div>
+          <div class="hint" id="insMonthly">≈ $125 /mo</div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Interest Rate | HOA (two cells; stay side-by-side on mobile) -->
+    <div class="table-row-2 keep-two-on-mobile">
+      <div class="table-cell">
+        <div class="field">
+          <div class="field-label">Interest Rate</div>
+          <div class="input-row">
+            <input type="number" class="num-input" id="rate" value="6.75" min="0.01" max="30" step="0.01" inputmode="decimal" />
+            <span style="font-size:14px;color:var(--text-sec);font-weight:600">%</span>
+          </div>
+        </div>
+      </div>
+      <div class="table-cell">
+        <div class="field">
+          <div class="field-label">HOA</div>
+          <div class="input-row">
+            <input type="number" class="num-input" id="hoa" value="0" min="0" step="10" inputmode="decimal" />
+            <span style="font-size:13px;color:var(--text-sec);font-weight:600">/mo</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- PMI (full-width row) -->
+    <div class="table-row">
+      <div class="field-label">PMI</div>
+      <div class="pmi-field">
+        <span class="pmi-none" id="pmiNone">Not required</span>
+        <span class="pmi-badge hidden" id="pmiBadge">
+          <svg width="13" height="13" viewBox="0 0 24 24" fill="none"><path d="M12 2L1 21h22L12 2zm0 3.5L20.5 19H3.5L12 5.5zM11 10v4h2v-4h-2zm0 6v2h2v-2h-2z" fill="currentColor"/></svg>
+          <span id="pmiAmount">$0/mo</span>
+        </span>
+      </div>
+      <div class="hint" id="pmiHint">Auto: 0.5% /yr of loan when LTV &gt; 80%</div>
+    </div>
+
+    <!-- Loan Term (full-width row) -->
+    <div class="table-row">
+      <div class="field-label">Loan Term</div>
+      <div class="term-group">
+        <button class="term-btn" data-years="10" onclick="setTerm(10)">10 yr</button>
+        <button class="term-btn" data-years="15" onclick="setTerm(15)">15 yr</button>
+        <button class="term-btn" data-years="20" onclick="setTerm(20)">20 yr</button>
+        <button class="term-btn active" data-years="30" onclick="setTerm(30)">30 yr</button>
+      </div>
+    </div>
+
+  </div><!-- /inputs-grid -->
+
+  <!-- ── Summary strip ─────────────────────────────────────── -->
+  <div class="summary-strip">
+    <div class="summary-card">
+      <div class="s-label">Loan Amount</div>
+      <div class="s-val" id="sumLoan">$320,000</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">Total Interest</div>
+      <div class="s-val" id="sumInterest">$0</div>
+    </div>
+    <div class="summary-card">
+      <div class="s-label">Loan-to-Value</div>
+      <div class="s-val" id="sumLtv">80.0%</div>
+    </div>
+  </div>
+
+</main>
+
+<script>
+  // ── State ──────────────────────────────────────────────────
+  let state = {
+    price:       400000,
+    dpMode:      'pct',   // 'pct' | 'dollar'
+    dpValue:     20,      // % when mode=pct, $ when mode=dollar
+    rate:        6.75,
+    termYears:   30,
+    taxAnnual:   5000,
+    insAnnual:   1500,
+    hoaMonthly:  0,
+  };
+
+  // ── Helpers ────────────────────────────────────────────────
+  const fmt = (n, decimals = 0) =>
+    '$' + Math.round(n).toLocaleString('en-US', { maximumFractionDigits: decimals });
+
+  const fmtExact = (n) =>
+    '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
+
+  function getDownPaymentDollar() {
+    if (state.dpMode === 'pct') {
+      return state.price * (state.dpValue / 100);
+    }
+    return state.dpValue;
+  }
+
+  // ── Calculation ────────────────────────────────────────────
+  function calculate() {
+    const dp        = Math.max(0, getDownPaymentDollar());
+    const loan      = Math.max(0, state.price - dp);
+    const r         = state.rate / 100 / 12;
+    const n         = state.termYears * 12;
+    const taxMo     = state.taxAnnual / 12;
+    const insMo     = state.insAnnual / 12;
+    const hoaMo     = state.hoaMonthly;
+
+    // P&I
+    let pi = 0;
+    if (r === 0) {
+      pi = loan / n;
+    } else {
+      const pow = Math.pow(1 + r, n);
+      pi = loan * (r * pow) / (pow - 1);
+    }
+
+    // LTV & PMI
+    const ltv = state.price > 0 ? loan / state.price : 0;
+    const pmi = ltv > 0.80 ? (loan * 0.005 / 12) : 0;
+
+    const total = pi + taxMo + insMo + hoaMo + pmi;
+    const totalInterest = (pi * n) - loan;
+
+    return { dp, loan, pi, taxMo, insMo, hoaMo, pmi, ltv, total, totalInterest };
+  }
+
+  // ── Render ─────────────────────────────────────────────────
+  let flashTimer = null;
+  function render() {
+    const c = calculate();
+
+    // Flash animation
+    const hero = document.getElementById('totalPayment');
+    hero.classList.add('flash');
+    clearTimeout(flashTimer);
+    flashTimer = setTimeout(() => hero.classList.remove('flash'), 120);
+
+    hero.textContent = fmt(c.total) + ' /mo';
+
+    // Breakdown
+    document.getElementById('bd-pi').textContent   = fmt(c.pi);
+    document.getElementById('bd-tax').textContent  = fmt(c.taxMo);
+    document.getElementById('bd-ins').textContent  = fmt(c.insMo);
+    document.getElementById('bd-hoa').textContent  = fmt(c.hoaMo);
+    document.getElementById('bd-pmi').textContent  = fmt(c.pmi);
+
+    const pmiItem = document.getElementById('bd-pmi-item');
+    pmiItem.style.display = c.pmi > 0 ? 'flex' : 'none';
+
+    // PMI badge
+    const pmiBadge = document.getElementById('pmiBadge');
+    const pmiNone  = document.getElementById('pmiNone');
+    if (c.pmi > 0) {
+      pmiBadge.classList.remove('hidden');
+      pmiNone.classList.add('hidden');
+      document.getElementById('pmiAmount').textContent = fmt(c.pmi) + '/mo';
+    } else {
+      pmiBadge.classList.add('hidden');
+      pmiNone.classList.remove('hidden');
+    }
+
+    // Summary strip
+    document.getElementById('sumLoan').textContent     = fmt(c.loan);
+    document.getElementById('sumInterest').textContent = fmt(c.totalInterest);
+    document.getElementById('sumLtv').textContent      = (c.ltv * 100).toFixed(1) + '%';
+
+    // Tax & insurance monthly hints
+    document.getElementById('taxMonthly').textContent = '≈ ' + fmt(c.taxMo) + ' /mo';
+    document.getElementById('insMonthly').textContent = '≈ ' + fmt(c.insMo) + ' /mo';
+
+    // Down payment hint
+    const dpDollar = c.dp;
+    const dpPct    = state.price > 0 ? (dpDollar / state.price * 100).toFixed(1) : '0.0';
+    if (state.dpMode === 'pct') {
+      document.getElementById('dpHint').textContent = fmt(dpDollar) + ' of purchase price';
+    } else {
+      document.getElementById('dpHint').textContent = dpPct + '% of purchase price';
+    }
+
+    // Update slider fill (filled track illusion via gradient)
+    updateSliderFill('priceSlider', 200000, 1000000, state.price);
+    updateDpSliderFill();
+  }
+
+  function updateSliderFill(sliderId, min, max, val) {
+    const sl = document.getElementById(sliderId);
+    if (!sl) return;
+    const pct = ((val - min) / (max - min)) * 100;
+    sl.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+  }
+
+  function updateDpSliderFill() {
+    const sl = document.getElementById('dpSlider');
+    let min, max, val;
+    if (state.dpMode === 'pct') {
+      min = 0; max = 100; val = state.dpValue;
+    } else {
+      min = 0; max = state.price; val = state.dpValue;
+    }
+    const pct = max > 0 ? Math.min(100, ((val - min) / (max - min)) * 100) : 0;
+    sl.style.background = `linear-gradient(to right, var(--accent) 0%, var(--accent) ${pct}%, var(--border) ${pct}%, var(--border) 100%)`;
+  }
+
+  // ── Wire up inputs ─────────────────────────────────────────
+
+  // ── Breakdown toggle ───────────────────────────────────────
+  function toggleBreakdown() {
+    const row     = document.getElementById('breakdownRow');
+    const chevron = document.getElementById('breakdownChevron');
+    row.classList.toggle('open');
+    chevron.classList.toggle('open');
+  }
+
+  // Price
+  document.getElementById('price').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value) || 0;
+    state.price = v;
+    document.getElementById('priceSlider').value = Math.min(1000000, Math.max(200000, v));
+    // If dp is dollar mode, clamp dp to new price
+    if (state.dpMode === 'dollar') syncDpSliderRange();
+    render();
+  });
+  document.getElementById('priceSlider').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    state.price = v;
+    document.getElementById('price').value = v;
+    if (state.dpMode === 'dollar') syncDpSliderRange();
+    render();
+  });
+
+  // Down payment
+  document.getElementById('downPayment').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value) || 0;
+    state.dpValue = v;
+    syncDpSlider();
+    render();
+  });
+  document.getElementById('dpSlider').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value);
+    state.dpValue = v;
+    document.getElementById('downPayment').value = state.dpMode === 'pct'
+      ? v.toFixed(1)
+      : Math.round(v);
+    render();
+  });
+
+  // Rate
+  document.getElementById('rate').addEventListener('input', (e) => {
+    const v = parseFloat(e.target.value) || 0;
+    state.rate = v;
+    render();
+  });
+
+  // Tax
+  document.getElementById('tax').addEventListener('input', (e) => {
+    state.taxAnnual = parseFloat(e.target.value) || 0;
+    render();
+  });
+
+  // Insurance
+  document.getElementById('insurance').addEventListener('input', (e) => {
+    state.insAnnual = parseFloat(e.target.value) || 0;
+    render();
+  });
+
+  // HOA
+  document.getElementById('hoa').addEventListener('input', (e) => {
+    state.hoaMonthly = parseFloat(e.target.value) || 0;
+    render();
+  });
+
+  // ── Down payment mode toggle ───────────────────────────────
+  function setDpMode(mode) {
+    const prevDollar = getDownPaymentDollar();
+
+    state.dpMode = mode;
+
+    if (mode === 'pct') {
+      const pct = state.price > 0 ? (prevDollar / state.price * 100) : 0;
+      state.dpValue = parseFloat(pct.toFixed(1));
+    } else {
+      state.dpValue = Math.round(prevDollar);
+    }
+
+    document.getElementById('dpPctBtn').classList.toggle('active', mode === 'pct');
+    document.getElementById('dpDolBtn').classList.toggle('active', mode === 'dollar');
+    document.getElementById('dpUnit').textContent = mode === 'pct' ? '%' : '$';
+
+    syncDpSliderRange();
+    syncDpSlider();
+    render();
+  }
+
+  function syncDpSliderRange() {
+    const sl = document.getElementById('dpSlider');
+    if (state.dpMode === 'pct') {
+      sl.min = 0; sl.max = 100; sl.step = 0.1;
+    } else {
+      sl.min = 0; sl.max = state.price; sl.step = 1000;
+    }
+  }
+
+  function syncDpSlider() {
+    document.getElementById('dpSlider').value = state.dpValue;
+    document.getElementById('downPayment').value = state.dpMode === 'pct'
+      ? state.dpValue.toFixed(1)
+      : Math.round(state.dpValue);
+  }
+
+  // ── Loan term ──────────────────────────────────────────────
+  function setTerm(years) {
+    state.termYears = years;
+    document.querySelectorAll('.term-btn').forEach(b => {
+      b.classList.toggle('active', parseInt(b.dataset.years) === years);
+    });
+    render();
+  }
+
+  // ── Init ───────────────────────────────────────────────────
+  syncDpSliderRange();
+  render();
+</script>
+</body>
+</html>
