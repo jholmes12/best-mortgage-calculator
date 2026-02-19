@@ -101,9 +101,7 @@
       color: #fff;
       line-height: 1;
       letter-spacing: -0.02em;
-      transition: opacity 0.15s ease;
     }
-    .hero-payment.flash { opacity: 0.4; }
 
     .breakdown-chevron {
       display: flex;
@@ -152,6 +150,9 @@
 
     /* ── Inputs panel (table layout) ─────────────────────────── */
     .inputs-grid {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
       background: var(--surface);
       border: 1px solid var(--border);
       border-radius: var(--radius);
@@ -527,7 +528,7 @@
       <div class="cell-head-row">
         <div class="field-label">Purchase Price</div>
         <div class="input-row">
-          <input type="number" class="num-input" id="price" value="400000" min="200000" max="800000" step="5000" />
+          <input type="text" class="num-input" id="price" inputmode="numeric" value="$400,000" />
         </div>
       </div>
       <div class="slider-wrap">
@@ -544,7 +545,7 @@
           <button id="dpDolBtn" onclick="setDpMode('dollar')">$</button>
         </div>
         <div class="dp-input-wrap">
-          <input type="number" class="num-input" id="downPayment" value="20" min="0" step="1.0" inputmode="decimal" />
+          <input type="text" class="num-input" id="downPayment" inputmode="numeric" value="20" />
           <span id="dpUnit" style="font-size:14px;color:var(--text-sec);font-weight:600;white-space:nowrap">%</span>
         </div>
       </div>
@@ -560,7 +561,7 @@
         <div class="field">
           <div class="field-label">Tax</div>
           <div class="input-row">
-            <input type="number" class="num-input" id="tax" value="2500" min="0" step="100" inputmode="decimal" />
+            <input type="text" class="num-input" id="tax" inputmode="numeric" />
             <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
           </div>
           <div class="hint" id="taxMonthly">≈ $417 /mo</div>
@@ -570,7 +571,7 @@
         <div class="field">
           <div class="field-label">Insurance</div>
           <div class="input-row">
-            <input type="number" class="num-input" id="insurance" value="2000" min="0" step="100" inputmode="decimal" />
+            <input type="text" class="num-input" id="insurance" inputmode="numeric" />
             <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
           </div>
           <div class="hint" id="insMonthly">≈ $125 /mo</div>
@@ -593,7 +594,7 @@
         <div class="field">
           <div class="field-label">HOA</div>
           <div class="input-row">
-            <input type="number" class="num-input" id="hoa" value="0" min="0" step="10" inputmode="decimal" />
+            <input type="text" class="num-input" id="hoa" inputmode="numeric" />
             <span style="font-size:13px;color:var(--text-sec);font-weight:600">/mo</span>
           </div>
         </div>
@@ -652,7 +653,7 @@
     dpValue:     20,      // % when mode=pct, $ when mode=dollar
     rate:        6.75,
     termYears:   30,
-    taxAnnual:   5000,
+    taxAnnual:   2500,
     insAnnual:   1500,
     hoaMonthly:  0,
   };
@@ -660,6 +661,15 @@
   // ── Helpers ────────────────────────────────────────────────
   const fmt = (n, decimals = 0) =>
     '$' + Math.round(n).toLocaleString('en-US', { maximumFractionDigits: decimals });
+
+  function formatPriceInput(n) {
+    const num = Math.round(Number(n)) || 0;
+    return '$' + num.toLocaleString('en-US', { maximumFractionDigits: 0 });
+  }
+  function parsePriceInput(str) {
+    const cleaned = String(str).replace(/[$,]/g, '');
+    return Math.max(0, parseFloat(cleaned) || 0);
+  }
 
   const fmtExact = (n) =>
     '$' + n.toLocaleString('en-US', { minimumFractionDigits: 0, maximumFractionDigits: 0 });
@@ -701,17 +711,10 @@
   }
 
   // ── Render ─────────────────────────────────────────────────
-  let flashTimer = null;
   function render() {
     const c = calculate();
 
-    // Flash animation
-    const hero = document.getElementById('totalPayment');
-    hero.classList.add('flash');
-    clearTimeout(flashTimer);
-    flashTimer = setTimeout(() => hero.classList.remove('flash'), 120);
-
-    hero.textContent = fmt(c.total) + ' /mo';
+    document.getElementById('totalPayment').textContent = fmt(c.total) + ' /mo';
 
     // Breakdown
     document.getElementById('bd-pi').textContent   = fmt(c.pi);
@@ -787,36 +790,50 @@
     chevron.classList.toggle('open');
   }
 
-  // Price
+  // Price (formatted with $ and commas)
+  const PRICE_MIN = 200000, PRICE_MAX = 800000;
   document.getElementById('price').addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value) || 0;
+    const raw = parsePriceInput(e.target.value);
+    const v = Math.round(Math.min(PRICE_MAX, Math.max(PRICE_MIN, raw)));
     state.price = v;
-    document.getElementById('priceSlider').value = Math.min(1000000, Math.max(200000, v));
-    // If dp is dollar mode, clamp dp to new price
+    document.getElementById('priceSlider').value = v;
+    const el = e.target;
+    el.value = formatPriceInput(v);
+    el.setSelectionRange(el.value.length, el.value.length);
     if (state.dpMode === 'dollar') syncDpSliderRange();
     render();
+  });
+  document.getElementById('price').addEventListener('blur', (e) => {
+    e.target.value = formatPriceInput(state.price);
   });
   document.getElementById('priceSlider').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
     state.price = v;
-    document.getElementById('price').value = v;
+    document.getElementById('price').value = formatPriceInput(v);
     if (state.dpMode === 'dollar') syncDpSliderRange();
     render();
   });
 
-  // Down payment
+  // Down payment (% plain number, $ formatted with $ and commas)
   document.getElementById('downPayment').addEventListener('input', (e) => {
-    const v = parseFloat(e.target.value) || 0;
-    state.dpValue = state.dpMode === 'pct' ? Math.round(v) : v;
+    const raw = state.dpMode === 'pct' ? (parseFloat(e.target.value) || 0) : parsePriceInput(e.target.value);
+    state.dpValue = state.dpMode === 'pct' ? Math.round(raw) : Math.round(raw);
+    const el = e.target;
+    el.value = state.dpMode === 'pct' ? Math.round(state.dpValue) : formatPriceInput(state.dpValue);
+    el.setSelectionRange(el.value.length, el.value.length);
     syncDpSlider();
     render();
+  });
+  document.getElementById('downPayment').addEventListener('blur', (e) => {
+    if (state.dpMode === 'pct') e.target.value = Math.round(state.dpValue);
+    else e.target.value = formatPriceInput(state.dpValue);
   });
   document.getElementById('dpSlider').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
     state.dpValue = state.dpMode === 'pct' ? Math.round(v) : v;
     document.getElementById('downPayment').value = state.dpMode === 'pct'
       ? Math.round(v)
-      : Math.round(v);
+      : formatPriceInput(v);
     render();
   });
 
@@ -827,22 +844,43 @@
     render();
   });
 
-  // Tax
+  // Tax (formatted with $ and commas)
   document.getElementById('tax').addEventListener('input', (e) => {
-    state.taxAnnual = parseFloat(e.target.value) || 0;
+    const v = Math.round(parsePriceInput(e.target.value));
+    state.taxAnnual = v;
+    const el = e.target;
+    el.value = formatPriceInput(v);
+    el.setSelectionRange(el.value.length, el.value.length);
     render();
   });
+  document.getElementById('tax').addEventListener('blur', (e) => {
+    e.target.value = formatPriceInput(state.taxAnnual);
+  });
 
-  // Insurance
+  // Insurance (formatted with $ and commas)
   document.getElementById('insurance').addEventListener('input', (e) => {
-    state.insAnnual = parseFloat(e.target.value) || 0;
+    const v = Math.round(parsePriceInput(e.target.value));
+    state.insAnnual = v;
+    const el = e.target;
+    el.value = formatPriceInput(v);
+    el.setSelectionRange(el.value.length, el.value.length);
     render();
   });
+  document.getElementById('insurance').addEventListener('blur', (e) => {
+    e.target.value = formatPriceInput(state.insAnnual);
+  });
 
-  // HOA
+  // HOA (formatted with $ and commas)
   document.getElementById('hoa').addEventListener('input', (e) => {
-    state.hoaMonthly = parseFloat(e.target.value) || 0;
+    const v = Math.round(parsePriceInput(e.target.value));
+    state.hoaMonthly = v;
+    const el = e.target;
+    el.value = formatPriceInput(v);
+    el.setSelectionRange(el.value.length, el.value.length);
     render();
+  });
+  document.getElementById('hoa').addEventListener('blur', (e) => {
+    e.target.value = formatPriceInput(state.hoaMonthly);
   });
 
   // ── Down payment mode toggle ───────────────────────────────
@@ -862,11 +900,6 @@
     document.getElementById('dpDolBtn').classList.toggle('active', mode === 'dollar');
     document.getElementById('dpUnit').textContent = mode === 'pct' ? '%' : '$';
 
-    const dpInput = document.getElementById('downPayment');
-    dpInput.step = mode === 'pct' ? '1' : '1000';
-    dpInput.min = mode === 'pct' ? '0' : '0';
-    dpInput.max = mode === 'pct' ? '100' : '';
-
     syncDpSliderRange();
     syncDpSlider();
     render();
@@ -885,7 +918,7 @@
     document.getElementById('dpSlider').value = state.dpValue;
     document.getElementById('downPayment').value = state.dpMode === 'pct'
       ? Math.round(state.dpValue)
-      : Math.round(state.dpValue);
+      : formatPriceInput(state.dpValue);
   }
 
   // ── Loan term ──────────────────────────────────────────────
@@ -898,7 +931,12 @@
   }
 
   // ── Init ───────────────────────────────────────────────────
+  document.getElementById('price').value = formatPriceInput(state.price);
+  document.getElementById('tax').value = formatPriceInput(state.taxAnnual);
+  document.getElementById('insurance').value = formatPriceInput(state.insAnnual);
+  document.getElementById('hoa').value = formatPriceInput(state.hoaMonthly);
   syncDpSliderRange();
+  syncDpSlider();
   render();
 </script>
 </body>
