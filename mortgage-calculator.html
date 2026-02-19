@@ -206,9 +206,9 @@
     .cell-head-row .num-input { max-width: 140px; }
     #downPayment {
       text-align: right;
-      width: 4ch;
-      min-width: 4ch;
-      max-width: 4ch;
+      width: 9ch;
+      min-width: 9ch;
+      max-width: 9ch;
       flex: 0 0 auto;
     }
 
@@ -317,9 +317,18 @@
       box-shadow: 0 0 0 4px rgba(37,99,235,0.35);
     }
 
-    /* Down payment row: equal spacing between title, toggle, and number input */
-    .cell-head-row.dp-row { gap: 24px; }
-    .cell-head-row.dp-row .input-row { gap: 24px; }
+    /* Down payment row: space-between so title, toggle, and number input are evenly spaced */
+    .cell-head-row.dp-row {
+      justify-content: space-between;
+      gap: 12px;
+    }
+    .cell-head-row.dp-row .toggle-group { flex-shrink: 0; }
+    .dp-input-wrap {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      flex-shrink: 0;
+    }
 
     /* Down payment toggle */
     .dp-header { display: flex; align-items: center; justify-content: space-between; }
@@ -529,19 +538,18 @@
     <!-- Down Payment (full-width row) -->
     <div class="table-row">
       <div class="cell-head-row dp-row">
-        <div class="field-label">Down Payment</div>
-        <div class="input-row">
-          <div class="toggle-group">
-            <button class="active" id="dpPctBtn" onclick="setDpMode('pct')">%</button>
-            <button id="dpDolBtn" onclick="setDpMode('dollar')">$</button>
-          </div>
-          <input type="number" class="num-input" id="downPayment" value="20" min="0" step="0.1" inputmode="decimal" />
+        <div class="field-label">$ Down</div>
+        <div class="toggle-group">
+          <button class="active" id="dpPctBtn" onclick="setDpMode('pct')">%</button>
+          <button id="dpDolBtn" onclick="setDpMode('dollar')">$</button>
+        </div>
+        <div class="dp-input-wrap">
+          <input type="number" class="num-input" id="downPayment" value="20" min="0" step="1.0" inputmode="decimal" />
           <span id="dpUnit" style="font-size:14px;color:var(--text-sec);font-weight:600;white-space:nowrap">%</span>
         </div>
-
       </div>
       <div class="slider-wrap">
-        <input type="range" id="dpSlider" min="0" max="100" step="0.1" value="20" />
+        <input type="range" id="dpSlider" min="0" max="100" step="1" value="20" />
       </div>
       <div class="hint" id="dpHint">20% of purchase price</div>
     </div>
@@ -552,7 +560,7 @@
         <div class="field">
           <div class="field-label">Tax</div>
           <div class="input-row">
-            <input type="number" class="num-input" id="tax" value="5000" min="0" step="100" inputmode="decimal" />
+            <input type="number" class="num-input" id="tax" value="2500" min="0" step="100" inputmode="decimal" />
             <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
           </div>
           <div class="hint" id="taxMonthly">≈ $417 /mo</div>
@@ -562,7 +570,7 @@
         <div class="field">
           <div class="field-label">Insurance</div>
           <div class="input-row">
-            <input type="number" class="num-input" id="insurance" value="1500" min="0" step="100" inputmode="decimal" />
+            <input type="number" class="num-input" id="insurance" value="2000" min="0" step="100" inputmode="decimal" />
             <span style="font-size:13px;color:var(--text-sec);font-weight:600">/yr</span>
           </div>
           <div class="hint" id="insMonthly">≈ $125 /mo</div>
@@ -799,15 +807,15 @@
   // Down payment
   document.getElementById('downPayment').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value) || 0;
-    state.dpValue = v;
+    state.dpValue = state.dpMode === 'pct' ? Math.round(v) : v;
     syncDpSlider();
     render();
   });
   document.getElementById('dpSlider').addEventListener('input', (e) => {
     const v = parseFloat(e.target.value);
-    state.dpValue = v;
+    state.dpValue = state.dpMode === 'pct' ? Math.round(v) : v;
     document.getElementById('downPayment').value = state.dpMode === 'pct'
-      ? v.toFixed(1)
+      ? Math.round(v)
       : Math.round(v);
     render();
   });
@@ -845,7 +853,7 @@
 
     if (mode === 'pct') {
       const pct = state.price > 0 ? (prevDollar / state.price * 100) : 0;
-      state.dpValue = parseFloat(pct.toFixed(1));
+      state.dpValue = Math.round(pct);
     } else {
       state.dpValue = Math.round(prevDollar);
     }
@@ -853,6 +861,11 @@
     document.getElementById('dpPctBtn').classList.toggle('active', mode === 'pct');
     document.getElementById('dpDolBtn').classList.toggle('active', mode === 'dollar');
     document.getElementById('dpUnit').textContent = mode === 'pct' ? '%' : '$';
+
+    const dpInput = document.getElementById('downPayment');
+    dpInput.step = mode === 'pct' ? '1' : '1000';
+    dpInput.min = mode === 'pct' ? '0' : '0';
+    dpInput.max = mode === 'pct' ? '100' : '';
 
     syncDpSliderRange();
     syncDpSlider();
@@ -862,7 +875,7 @@
   function syncDpSliderRange() {
     const sl = document.getElementById('dpSlider');
     if (state.dpMode === 'pct') {
-      sl.min = 0; sl.max = 100; sl.step = 0.1;
+      sl.min = 0; sl.max = 100; sl.step = 1;
     } else {
       sl.min = 0; sl.max = state.price; sl.step = 1000;
     }
@@ -871,7 +884,7 @@
   function syncDpSlider() {
     document.getElementById('dpSlider').value = state.dpValue;
     document.getElementById('downPayment').value = state.dpMode === 'pct'
-      ? state.dpValue.toFixed(1)
+      ? Math.round(state.dpValue)
       : Math.round(state.dpValue);
   }
 
